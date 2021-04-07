@@ -1,0 +1,32 @@
+body {
+  /* background: green; */
+  padding: 8px !important;
+}
+
+.input {
+  margin: 0px;
+}
+
+hr {
+  opacity: 0.3;
+  margin-left: -8px;
+  margin-right: -8px;
+}
+
+.section-title { margin-top: -4px; }
+
+.container {
+  padding: 8px;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+.col {
+  width: 100%;
+  padding: 0 8px;
+}
+.col:first-child { padding-left: 0; }
+.col:last-child { padding-right: 0; }

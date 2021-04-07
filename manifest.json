@@ -1,0 +1,7 @@
+{
+  "name": "Tablefy",
+  "id": "961387021991409888",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html"
+}

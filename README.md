@@ -5,7 +5,7 @@ This is a Figma plugin that lets you turn your frames into tabular data.
 In Figma, you have to create a frame that can represent a row in a table. To do so, it must have groups/frames representing its columns and text layers representing that column value and header. The plugin knows which layers to read based on their names.
 
 One way to do so would be to name your frames as follows:
-Instance named "Row" (representing the row)
+- Instance named "Row" (representing the row)
   - Group named "Column" (representing the column)
     - Layer named "Header" (representing column header)
     - Layer named "Value" (representing column value)

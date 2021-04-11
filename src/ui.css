@@ -18,6 +18,10 @@ hr {
 .container {
   padding: 8px;
 }
+.onboarding-tip {
+  padding-left: 8px !important;
+  padding-right: 8px;
+}
 
 .row {
   display: flex;

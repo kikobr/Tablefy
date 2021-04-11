@@ -27,7 +27,7 @@ let inputChanged = (evt) => {
       layerNames: getLayerNames()
     }
   }, '*');
-  console.log("saved");
+  console.log("layerNames saved");
 }
 rowIdentifier.onchange = inputChanged;
 columnIdentifier.onchange = inputChanged;

@@ -1,5 +1,9 @@
 body {
   /* background: green; */
+  padding: 0;
+}
+
+main {
   padding: 8px !important;
 }
 
@@ -34,3 +38,12 @@ hr {
 }
 .col:first-child { padding-left: 0; }
 .col:last-child { padding-right: 0; }
+
+.hidden { display: none !important; }
+.buttons {
+  display: flex;
+  flex-direction: row;
+}
+.buttons .button:not(:last-child) {
+  margin-right: 8px;
+}

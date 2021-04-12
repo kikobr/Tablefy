@@ -1,13 +1,19 @@
 
 // This shows the HTML page in "ui.html".
 figma.showUI(__html__);
-figma.ui.resize(300,298);
+const UIWidth = 350;
 
 // Calls to "parent.postMessage" from within the HTML page will trigger this
 // callback. The callback will be passed the "pluginMessage" property of the
 // posted message.
+
+const resize = (size) => {
+  return figma.ui.resize(UIWidth, size + 2);
+}
+
 figma.ui.onmessage = msg => {
   if(msg.type == "init"){
+    if(msg.size) resize(msg.size);
     figma.clientStorage.getAsync("layerNames").then((savedNames)=>{
       let layerNames = savedNames || {
         rowIdentifier: "Instance",
@@ -22,7 +28,9 @@ figma.ui.onmessage = msg => {
     });
     return;
   }
-
+  else if(msg.type == "resize" && msg.size) {
+    return resize(msg.size);
+  }
   else if(msg.type == "saveLayerNames"){
     let layerNames = msg.layerNames;
     figma.clientStorage.setAsync("layerNames", layerNames);
@@ -60,14 +68,18 @@ figma.ui.onmessage = msg => {
       if(columnItem.columnHeader) columnItem.columnHeader = columnItem.columnHeader.characters;
       // otherwise defaults to the columnIdentifier or rowIdentifier (when there is only one column)
       else columnItem.columnHeader = columnIdentifier || rowIdentifier || "Column";
-      columnItem.columnValue = fromNode.findOne(node => node.name == valueTextLayer).characters;
+
+      columnItem.columnValue = fromNode.findOne(node => node.name == valueTextLayer);
+      if(columnItem.columnValue) columnItem.columnValue = columnItem.columnValue.characters;
+      else columnItem.columnValue = null;
 
       return (columnItem.columnValue) ? columnItem : null;
     }
 
     let items = [];
     let keys = [];
-    for (const node of rows) {
+    // generate list of exportable items from selected rows
+    for (const [nodeIndex, node] of rows.entries()) {
 
       let headers = [];
       let values = [];
@@ -94,6 +106,30 @@ figma.ui.onmessage = msg => {
           item[columnItem.columnHeader] = columnItem.columnValue;
           if(!keys.includes(columnItem.columnHeader)) keys.push(columnItem.columnHeader);
         }
+      }
+
+      let nodeThis = this;
+
+      // if there are custom columns, render them and append to item object
+      if(layerNames.customColumns && layerNames.customColumns.length){
+        layerNames.customColumns.forEach((customColumn, i) => {
+          let customColumnValue = customColumn.value,
+              customColumnName = customColumn.header || `customColumn${i+1}`;
+          // value has ${} syntax
+          if(customColumnValue.match(/(?<=\$\{)(.*?)(?=\})/g)){
+            // loop through each ${}
+            let vars = customColumnValue.match(/(?<={)(.*?)(?=\})/g).map((v) => {
+              // if ${} has node-*** syntax, use the suffix to use a property from node object, like id, name, x, y
+              if(v.match(/(?<=node\-)(.*)/gi)) return node[v.match(/(?<=node\-)(.*)/gi)[0]];
+              // if ${index}, inject node index + 1 (row line counter)
+              else if(v == "index") return nodeIndex + 1;
+              // TODO: enable math operations or something like that
+              else return v;
+            });
+            customColumnValue = customColumnValue.replace(/\$({)(.*?)(\})/g, vars);
+          }
+          item[customColumnName] = customColumnValue;
+        });
       }
 
       // add to list only if its not empty

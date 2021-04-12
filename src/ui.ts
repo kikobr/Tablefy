@@ -3,10 +3,103 @@ import 'figma-plugin-ds/dist/figma-plugin-ds.css';
 import selectMenu from 'figma-plugin-ds/dist/modules/selectMenu';
 const Papa = require("papaparse");
 
-let rowIdentifier = document.getElementById("row-identifier"),
+let main = document.querySelector("main"),
+    rowIdentifier = document.getElementById("row-identifier"),
     columnIdentifier = document.getElementById("column-identifier"),
     columnHeader = document.getElementById("column-header"),
-    columnValue = document.getElementById("column-value");
+    columnValue = document.getElementById("column-value"),
+    addCustomColumnButton = document.getElementById("addCustomColumnButton"),
+    removeCustomColumnButton = document.getElementById("removeCustomColumnButton"),
+    customColumnRows = document.getElementById("custom-column-rows"),
+    customColumns = [];
+
+// save layer names after updating input
+let inputChanged = (evt) => {
+  let layerNames = getLayerNames();
+  parent.postMessage({
+    pluginMessage: {
+      type: 'saveLayerNames',
+      layerNames: layerNames
+    }
+  }, '*');
+  console.log("layerNames saved", layerNames);
+}
+
+rowIdentifier.onchange = inputChanged;
+columnIdentifier.onchange = inputChanged;
+columnHeader.onchange = inputChanged;
+columnValue.onchange = inputChanged;
+
+// create columns dynamically
+let customs = document.querySelectorAll("[name*='custom-column-value']");
+let addCustomColumn = (columns) => {
+  customColumns = [];
+
+  // if it doesnt come pre-filled from init, initialize with an empty column
+  if(!columns.length) columns = [{ value: "", header: "" }];
+
+  columns.forEach((custom, index) => {
+    let row = document.createElement("div");
+    row.innerHTML = `
+      <div class="row">
+        <div class="col">
+          <div class="section-title">Custom column value</div>
+          <div class="input input--with-icon">
+            <div class="icon icon--group"></div>
+            <input name="custom-column-value-${index}" type="input" class="input__field" value="${custom.value}">
+          </div>
+        </div>
+        <div class="col">
+          <div class="section-title">Custom column header</div>
+          <div class="input input--with-icon">
+            <div class="icon icon--group"></div>
+            <input name="custom-column-name-${index}" type="input" class="input__field" value="${custom.header}">
+          </div>
+        </div>
+      </div>
+    `;
+    customColumnRows.querySelector(".list").append(row);
+    row.querySelectorAll("[name^=custom-column]").forEach(node => {
+      node.onchange = inputChanged;
+    });
+  });
+
+  customColumnRows.classList.remove("hidden");
+  addCustomColumnButton.classList.add("hidden");
+  removeCustomColumnButton.classList.remove("hidden");
+
+  parent.postMessage({
+    pluginMessage: {
+      type: 'saveLayerNames',
+      layerNames: getLayerNames()
+    }
+  }, '*');
+  parent.postMessage({
+    pluginMessage: { type: 'resize', size: main.getBoundingClientRect().height }
+  }, '*');
+}
+addCustomColumnButton.onclick = addCustomColumn;
+
+// remove columns
+let removeCustomColumn = () => {
+  customColumns = [];
+  customColumnRows.querySelector(".list").innerHTML = "";
+
+  customColumnRows.classList.add("hidden");
+  addCustomColumnButton.classList.remove("hidden");
+  removeCustomColumnButton.classList.add("hidden");
+
+  parent.postMessage({
+    pluginMessage: {
+      type: 'saveLayerNames',
+      layerNames: getLayerNames()
+    }
+  }, '*');
+  parent.postMessage({
+    pluginMessage: { type: 'resize', size: main.getBoundingClientRect().height }
+  }, '*');
+}
+removeCustomColumnButton.onclick = removeCustomColumn;
 
 // clicou no download, passa mensagem pro code.ts pegar as
 // layers selecionadas e gerar lista de itens pro csv
@@ -19,21 +112,6 @@ document.getElementById('download').onclick = () => {
   }, '*');
 }
 
-// save layer names after updating input
-let inputChanged = (evt) => {
-  parent.postMessage({
-    pluginMessage: {
-      type: 'saveLayerNames',
-      layerNames: getLayerNames()
-    }
-  }, '*');
-  console.log("layerNames saved");
-}
-rowIdentifier.onchange = inputChanged;
-columnIdentifier.onchange = inputChanged;
-columnHeader.onchange = inputChanged;
-columnValue.onchange = inputChanged;
-
 // code.ts respondeu com um array de itens.
 onmessage = (event) => {
   if(event.data.pluginMessage.type == "init"){
@@ -43,6 +121,9 @@ onmessage = (event) => {
     columnIdentifier.value = layerNames["columnIdentifier"];
     columnHeader.value = layerNames["headerTextLayer"];
     columnValue.value = layerNames["valueTextLayer"];
+    // apply custom columns to their inputs
+    if(layerNames["customColumns"] && layerNames["customColumns"].length) addCustomColumn(layerNames["customColumns"]);
+    else removeCustomColumn();
   }
   // parseia com o papaparse e baixa o csv
   else if(event.data.pluginMessage.type == "download"){
@@ -50,6 +131,7 @@ onmessage = (event) => {
     let csv = Papa.unparse(items);
     console.log(items);
     console.log(csv);
+    console.log(getLayerNames());
     downloadCsv(csv);
   }
 }
@@ -60,6 +142,13 @@ let getLayerNames = () => {
   layerNames["columnIdentifier"] = columnIdentifier.value;
   layerNames["headerTextLayer"] = columnHeader.value;
   layerNames["valueTextLayer"] = columnValue.value;
+  layerNames["customColumns"] = [];
+  // get custom columns from dynamically generated
+  customColumnRows.querySelectorAll("[name^=custom-column-value]").forEach(node => {
+    let name = node.closest(".row").querySelector("[name^=custom-column-name]");
+    name = name && name.value ? name.value : "";
+    layerNames["customColumns"].push({ value: node.value, header: name });
+  });
   return layerNames;
 }
 

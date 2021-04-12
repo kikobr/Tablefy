@@ -3,5 +3,6 @@
   "id": "962937914340602604",
   "api": "1.0.0",
   "main": "dist/code.js",
+  "enablePrivatePluginApi": true,
   "ui": "dist/ui.html"
 }

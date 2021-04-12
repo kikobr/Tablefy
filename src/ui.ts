@@ -11,6 +11,7 @@ let main = document.querySelector("main"),
     addCustomColumnButton = document.getElementById("addCustomColumnButton"),
     removeCustomColumnButton = document.getElementById("removeCustomColumnButton"),
     customColumnRows = document.getElementById("custom-column-rows"),
+    customColumnRowsList = customColumnRows.querySelector(".list"),
     customColumns = [];
 
 // save layer names after updating input
@@ -31,16 +32,19 @@ columnHeader.onchange = inputChanged;
 columnValue.onchange = inputChanged;
 
 // create columns dynamically
-let customs = document.querySelectorAll("[name*='custom-column-value']");
-let addCustomColumn = (columns) => {
-  customColumns = [];
+let addCustomColumn = (cols) => {
+  let columns = cols.length ? cols : getLayerNames().customColumns;
 
   // if it doesnt come pre-filled from init, initialize with an empty column
-  if(!columns.length) columns = [{ value: "", header: "" }];
+  if(!cols.length) {
+    columns.push({ value: "", header: "" });
+  }
+
+  let row = customColumnRowsList;
+  row.innerHTML = "";
 
   columns.forEach((custom, index) => {
-    let row = document.createElement("div");
-    row.innerHTML = `
+    row.innerHTML = row.innerHTML + `
       <div class="row">
         <div class="col">
           <div class="section-title">Custom column value</div>
@@ -58,14 +62,13 @@ let addCustomColumn = (columns) => {
         </div>
       </div>
     `;
-    customColumnRows.querySelector(".list").append(row);
-    row.querySelectorAll("[name^=custom-column]").forEach(node => {
-      node.onchange = inputChanged;
-    });
+  });
+  customColumnRowsList.querySelectorAll("[name^=custom-column]").forEach(node => {
+    node.onchange = inputChanged;
   });
 
-  customColumnRows.classList.remove("hidden");
-  addCustomColumnButton.classList.add("hidden");
+  customColumnRowsList.classList.remove("hidden");
+  // addCustomColumnButton.classList.add("hidden");
   removeCustomColumnButton.classList.remove("hidden");
 
   parent.postMessage({
@@ -82,12 +85,16 @@ addCustomColumnButton.onclick = addCustomColumn;
 
 // remove columns
 let removeCustomColumn = () => {
-  customColumns = [];
-  customColumnRows.querySelector(".list").innerHTML = "";
 
-  customColumnRows.classList.add("hidden");
-  addCustomColumnButton.classList.remove("hidden");
-  removeCustomColumnButton.classList.add("hidden");
+  let columns = getLayerNames().customColumns;
+  if(columns.length > 1){
+    customColumnRowsList.removeChild(customColumnRowsList.querySelector(".row:last-child"));
+  } else {
+    customColumnRowsList.innerHTML = "";
+    // addCustomColumnButton.classList.remove("hidden");
+    customColumnRowsList.classList.add("hidden");
+    removeCustomColumnButton.classList.add("hidden");
+  }
 
   parent.postMessage({
     pluginMessage: {
@@ -121,6 +128,7 @@ onmessage = (event) => {
     columnIdentifier.value = layerNames["columnIdentifier"];
     columnHeader.value = layerNames["headerTextLayer"];
     columnValue.value = layerNames["valueTextLayer"];
+
     // apply custom columns to their inputs
     if(layerNames["customColumns"] && layerNames["customColumns"].length) addCustomColumn(layerNames["customColumns"]);
     else removeCustomColumn();
@@ -129,9 +137,8 @@ onmessage = (event) => {
   else if(event.data.pluginMessage.type == "download"){
     let items = event.data.pluginMessage.items;
     let csv = Papa.unparse(items);
-    console.log(items);
-    console.log(csv);
-    console.log(getLayerNames());
+    console.log("Items to download:", items);
+    console.log("Csv to download:\n", csv);
     downloadCsv(csv);
   }
 }

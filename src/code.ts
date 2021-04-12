@@ -123,6 +123,7 @@ figma.ui.onmessage = msg => {
               if(v.match(/(?<=node\-)(.*)/gi)) return node[v.match(/(?<=node\-)(.*)/gi)[0]];
               // if ${index}, inject node index + 1 (row line counter)
               else if(v == "index") return nodeIndex + 1;
+              else if(v.match(/url/i)) return encodeURI(`https://www.figma.com/file/${figma.fileKey}/${figma.root.name}?node-id=${node.id}`);
               // TODO: enable math operations or something like that
               else return v;
             });

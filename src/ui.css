@@ -47,3 +47,24 @@ hr {
 .buttons .button:not(:last-child) {
   margin-right: 8px;
 }
+
+#custom-column-rows .list {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+#custom-column-rows .list > .row {
+  margin-bottom: 8px;
+  background: rgba(24,168,251,0.1);
+  padding: 8px;
+  border-radius: 4px;
+}
+#custom-column-rows .list .section-title {
+  /* padding-left: 0px;
+  padding-right: 0px; */
+}
+#custom-column-rows .list input {
+  background-color: inherit;
+}
+#custom-column-rows .buttons {
+  padding: 8px;
+}

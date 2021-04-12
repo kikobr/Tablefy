@@ -61,13 +61,14 @@ figma.ui.onmessage = msg => {
       rows = rows.concat(figma.currentPage.findAll(node => node.name === rowIdentifier));
     }
 
-    let getColumnFromNode = (fromNode) => {
+    let getColumnFromNode = (fromNode, index) => {
       let columnItem = {};
       columnItem.columnHeader = fromNode.findOne(node => node.name == headerTextLayer);
       // get the layer with the same same as headerTextLayer and use its value as the header
       if(columnItem.columnHeader) columnItem.columnHeader = columnItem.columnHeader.characters;
-      // otherwise defaults to the columnIdentifier or rowIdentifier (when there is only one column)
-      else columnItem.columnHeader = columnIdentifier || rowIdentifier || "Column";
+      // otherwise defaults to the columnHeader or a default one
+      // its important that each column have a different header, so that the list is correctly rendered
+      else columnItem.columnHeader = headerTextLayer ? `${headerTextLayer} ${index + 1}` : `Column ${index + 1}`;
 
       columnItem.columnValue = fromNode.findOne(node => node.name == valueTextLayer);
       if(columnItem.columnValue) columnItem.columnValue = columnItem.columnValue.characters;
@@ -86,13 +87,12 @@ figma.ui.onmessage = msg => {
       let item = {};
 
       // get layers that would represent the row columns
-      let columns = node.findAll(node => node.name === columnIdentifier);
+      let columns = node.findAll((node) => node.name === columnIdentifier);
       if(columns.length){
-        columns.forEach((column) => {
+        columns.forEach((column, columnIndex) => {
           // inside these column layers, finds a layer to be the header of the column and another to be its value
           // each item must have a header property for the export with papa parse to work
-          // linha exibirá o nome da coluna
-          let columnItem = getColumnFromNode(column);
+          let columnItem = getColumnFromNode(column, columnIndex);
           if(columnItem){
             item[columnItem.columnHeader] = columnItem.columnValue;
             if(!keys.includes(columnItem.columnHeader)) keys.push(columnItem.columnHeader);
@@ -101,7 +101,7 @@ figma.ui.onmessage = msg => {
       }
       // otherwise, assume there is only one column and search the value directly from the row node
       else {
-        let columnItem = getColumnFromNode(node);
+        let columnItem = getColumnFromNode(node, 0);
         if(columnItem){
           item[columnItem.columnHeader] = columnItem.columnValue;
           if(!keys.includes(columnItem.columnHeader)) keys.push(columnItem.columnHeader);

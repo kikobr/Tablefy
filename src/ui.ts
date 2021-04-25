@@ -50,14 +50,14 @@ let addCustomColumn = (cols) => {
           <div class="section-title">Custom column value</div>
           <div class="input input--with-icon">
             <div class="icon icon--group"></div>
-            <input name="custom-column-value-${index}" type="input" class="input__field" value="${custom.value}">
+            <input name="custom-column-value-${index}" type="input" class="input__field" value='${custom.value}'>
           </div>
         </div>
         <div class="col">
           <div class="section-title">Custom column header</div>
           <div class="input input--with-icon">
             <div class="icon icon--group"></div>
-            <input name="custom-column-name-${index}" type="input" class="input__field" value="${custom.header}">
+            <input name="custom-column-name-${index}" type="input" class="input__field" value='${custom.header}'>
           </div>
         </div>
       </div>

@@ -1,3 +1,5 @@
+import knn from "ml-knn";
+
 
 // This shows the HTML page in "ui.html".
 figma.showUI(__html__);
@@ -9,6 +11,16 @@ const UIWidth = 350;
 
 const resize = (size) => {
   return figma.ui.resize(UIWidth, size + 2);
+}
+
+let stringToObj = function(o){
+  let properties = o.replace(', ', ',').split(',');
+  let obj = {};
+  properties.forEach(function(property) {
+      var tup = property.split(':');
+      obj[tup[0].trim()] = tup[1].trim().replace('\"', '').replace('"', '');
+  });
+  return obj;
 }
 
 figma.ui.onmessage = msg => {
@@ -47,6 +59,8 @@ figma.ui.onmessage = msg => {
     let headerTextLayer = layerNames.headerTextLayer;
     let valueTextLayer = layerNames.valueTextLayer;
 
+    let strVarRegex = /(?<=\{)(.*?)(?=\})/g;
+
     let rows = [];
     // try to find rows from selection for performance purposes
     if(figma.currentPage.selection.length){
@@ -76,6 +90,92 @@ figma.ui.onmessage = msg => {
 
       return (columnItem.columnValue) ? columnItem : null;
     }
+
+    // KNN (K-Nearest Neighbours classification algorithm)
+    let knnModels = {};
+
+    // create a KNN model for each variable matching predict:
+    if(layerNames.customColumns && layerNames.customColumns.length){
+      let knnError = null;
+      layerNames.customColumns.forEach((customColumn, i) => {
+
+        // since we are in a loop, we will generate a new model for each new ${predict:} field,
+        // value has ${} syntax
+        (customColumn.value.match(strVarRegex) || []).forEach((v) => {
+
+          // check to see if theres any custom column with the predict naming structure
+          // if so, we have to train the model before the node loop starts, for better performance
+          // if ${} has predict: syntax, train models
+          if(v.match(/predict\:/gi)) {
+
+            // gets and object from the predict command
+            // 'predict: "component name", category: "layer name"' => { predict: "component name", category: "layer name" }
+            let predictObj = stringToObj(v)
+
+            // gets the prediction properties
+            let predictElement = predictObj.predict || "",
+                predictElementCategory = predictObj.category || null;
+
+            // if theres a correct prediction object, train the model using mljs' knn module:
+            // https://github.com/mljs/knn
+            // so that the user could use multiple prediction fields
+            if(predictElement) {
+              let train_dataset = [];
+              let train_labels = [];
+
+              let trainElements = figma.currentPage.findAll(node => node.name == predictElement);
+              trainElements.forEach(trainElement => {
+
+                let elementCategory;
+                if(!predictElementCategory) elementCategory = trainElement;
+                else elementCategory = trainElement.findOne(node => node.name == predictElementCategory);
+
+                // creates a grid of 9 points around the elements box models
+                // feed these grid points to knn model
+                for(const corner of Array.from({ length: 9 }, (v, k) => k+1)){
+                  let entryXY = [];
+                  switch(corner){
+                    case 1: // top left
+                      entryXY = [trainElement.x, trainElement.y]; break;
+                    case 2: // top center
+                      entryXY = [trainElement.x + (trainElement.width / 2), trainElement.y]; break;
+                    case 3: // top right
+                      entryXY = [trainElement.x + trainElement.width, trainElement.y]; break;
+                    case 4: // middle left
+                      entryXY = [trainElement.x, trainElement.y + (trainElement.height / 2)]; break;
+                    case 5: // middle center
+                      entryXY = [trainElement.x + (trainElement.width / 2), trainElement.y + (trainElement.height / 2)]; break;
+                    case 6: // middle right
+                      entryXY = [trainElement.x + trainElement.width, trainElement.y + (trainElement.height / 2)]; break;
+                    case 7: // bottom left
+                      entryXY = [trainElement.x, trainElement.y + trainElement.height]; break;
+                    case 8: // bottom middle
+                      entryXY = [trainElement.x + (trainElement.width / 2), trainElement.y + trainElement.height]; break;
+                    case 9: // bottom right
+                      entryXY = [trainElement.x + trainElement.width, trainElement.y + trainElement.height];
+                  }
+                  train_dataset.push(entryXY);
+                  train_labels.push(elementCategory ? elementCategory.characters : "");
+                }
+              });
+              // creates a model for each predictionElement
+              knnModels[predictElement] = new knn(train_dataset, train_labels, { k: 1 }); // consider only the closest neighbour (1)
+              train_dataset = [];
+              train_labels = [];
+
+              // console.log(train_dataset);
+              // console.log(train_labels);
+              // console.log(model);
+              // console.log(test);
+            }
+            else knnError = "Your predict field is missing a name. Check if you've formatted it correctly."
+
+          }
+        });
+      });
+      if(knnError) figma.notify(knnError);
+    }
+
 
     let items = [];
     let keys = [];
@@ -116,18 +216,39 @@ figma.ui.onmessage = msg => {
           let customColumnValue = customColumn.value,
               customColumnName = customColumn.header || `customColumn${i+1}`;
           // value has ${} syntax
-          if(customColumnValue.match(/(?<=\$\{)(.*?)(?=\})/g)){
+          if(customColumnValue.match(strVarRegex)){
             // loop through each ${}
-            let vars = customColumnValue.match(/(?<={)(.*?)(?=\})/g).map((v) => {
+            let vars = customColumnValue.match(strVarRegex).map((v) => {
               // if ${} has node-*** syntax, use the suffix to use a property from node object, like id, name, x, y
               if(v.match(/(?<=node\-)(.*)/gi)) return node[v.match(/(?<=node\-)(.*)/gi)[0]];
               // if ${index}, inject node index + 1 (row line counter)
               else if(v == "index") return nodeIndex + 1;
               else if(v.match(/url/i)) return encodeURI(`https://www.figma.com/file/${figma.fileKey}/${figma.root.name}?node-id=${node.id}`);
+              else if(v.match(/(?<=predict\:)(.*)/gi)){
+
+                // gets and object from the predict command
+                // 'predict: "component name", category: "layer name"' => { predict: "component name", category: "layer name" }
+                let predictObj = stringToObj(v);
+                // gets the prediction name to acess the trained model
+                let predictElement = predictObj.predict || "";
+                if(predictElement){
+                  // use the trained model to predict this node category
+                  let predictEntry = [node.x + (node.width / 2), node.y + (node.height / 2) ]; // center of node
+                  return knnModels[predictElement].predict(predictEntry) || "";
+                } else return "";
+
+              }
               // TODO: enable math operations or something like that
               else return v;
             });
-            customColumnValue = customColumnValue.replace(/\$({)(.*?)(\})/g, vars);
+
+            // if the value field has multiple ${}, replace each one with the corresponding vars[index]
+            let replaceValue = customColumnValue;
+            customColumnValue.match(/\$({)(.*?)(\})/g).forEach((strVar, index) => {
+              replaceValue = replaceValue.replace(strVar, vars[index]);
+            });
+            customColumnValue = replaceValue;
+
           }
           item[customColumnName] = customColumnValue;
         });

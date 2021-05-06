@@ -68,7 +68,8 @@ figma.ui.onmessage = msg => {
         // if the name of the selected item is the same as the rowidentifier,
         // add it to the rows list
         if(sel.name === rowIdentifier) rows.push(sel);
-        rows = rows.concat(sel.findAll(node => node.name === rowIdentifier));
+        // if the selection has children (findAll is not undefined), gather layers identifiable as rows
+        if(sel.findAll != undefined) rows = rows.concat(sel.findAll(node => node.name === rowIdentifier));
       }
     // if theres no selection, fall back to fetching rows from the page (slower)
     } else {
@@ -176,7 +177,6 @@ figma.ui.onmessage = msg => {
       if(knnError) figma.notify(knnError);
     }
 
-
     let items = [];
     let keys = [];
     // generate list of exportable items from selected rows
@@ -239,7 +239,13 @@ figma.ui.onmessage = msg => {
 
               }
               // TODO: enable math operations or something like that
-              else return v;
+              else {
+                  // try to get layer name from the variable
+                  let layer = node.findOne((n) => n.name === v);
+                  // if theres one layer found, check if it has characters. if so, use it. if not, just return the variable
+                  if(layer && layer.characters) return layer.characters;
+                  else return v;
+              }
             });
 
             // if the value field has multiple ${}, replace each one with the corresponding vars[index]
